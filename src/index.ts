@@ -1,4 +1,6 @@
+import { extractAndStore } from "./memory/memory.service";
 import { Command, InvalidArgumentError } from "commander";
+
 import * as dotenv from "dotenv";
 dotenv.config();
 
@@ -10,7 +12,12 @@ import {
   getRecentMessages,
 } from "./db/helpers";
 import { runAgent } from "./agent/agent";
-import type { CLIInput, ChannelType, ThreadContext } from "./types";
+import type {
+  CLIInput,
+  ContinueThreadInput,
+  ChannelType,
+  ThreadContext,
+} from "./types";
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -38,7 +45,6 @@ async function handleNewThread(input: CLIInput & { kind: "new_thread" }) {
 
   // 2. Store user instruction as "user" role
   await appendMessage(thread.id, "user", input.message);
-
   const context: ThreadContext = {
     threadId: thread.id,
     channel: input.channel,
@@ -57,9 +63,7 @@ async function handleNewThread(input: CLIInput & { kind: "new_thread" }) {
   console.log(output.formatted);
 }
 
-async function handleContinueThread(
-  input: CLIInput & { kind: "continue_thread" },
-) {
+async function handleContinueThread(input: ContinueThreadInput) {
   const thread = await getThread(input.threadId);
   if (!thread) {
     console.error(`✗ Thread not found: ${input.threadId}`);
@@ -82,6 +86,8 @@ async function handleContinueThread(
 
   // 3. Store agent response
   await appendMessage(thread.id, "agent", output.raw);
+  await extractAndStore(input.message, thread.id, thread.channel, input.from);
+  
 
   // 4. Print acknowledgment
   console.log("OK");
