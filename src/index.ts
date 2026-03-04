@@ -3,8 +3,14 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 import { ping } from "./db/client";
-import { getThread } from "./db/helpers";
-import type { CLIInput, ChannelType } from "./types";
+import {
+  createThread,
+  getThread,
+  appendMessage,
+  getRecentMessages,
+} from "./db/helpers";
+import { runAgent } from "./agent/agent";
+import type { CLIInput, ChannelType, ThreadContext } from "./types";
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
@@ -24,31 +30,90 @@ function validateAddress(value: string): string {
   return value.trim();
 }
 
-// ── Handlers (stubs for now — wired in M4+) ──────────────────────────────────
+// ── Handlers ──────────────────────────────────────────────────────────────────
 
 async function handleNewThread(input: CLIInput & { kind: "new_thread" }) {
-  console.log("→ New outbound thread");
-  console.log(`  Channel : ${input.channel}`);
-  console.log(`  To      : ${input.to}`);
-  console.log(`  Message : ${input.message}`);
-  // TODO M4: create thread, run agent, print formatted response
+  // 1. Create thread in DB
+  const thread = await createThread(input.channel, input.to);
+
+  // 2. Store user instruction as "user" role
+  await appendMessage(thread.id, "user", input.message);
+
+  const context: ThreadContext = {
+    threadId: thread.id,
+    channel: input.channel,
+    toAddress: input.to,
+  };
+
+  // 3. Run agent — no prior messages, just the user instruction
+  const messages = await getRecentMessages(thread.id);
+  const output = await runAgent({ thread: context, messages });
+
+  // 4. Store agent response
+  await appendMessage(thread.id, "agent", output.raw);
+
+  // 5. Print
+  console.log("OK");
+  console.log(output.formatted);
 }
 
 async function handleContinueThread(
   input: CLIInput & { kind: "continue_thread" },
 ) {
-  console.log("→ Continue thread (inbound reply)");
-  console.log(`  Thread  : ${input.threadId}`);
-  console.log(`  From    : ${input.from}`);
-  console.log(`  Message : ${input.message}`);
-  // TODO M4: load thread, append message, run agent
+  const thread = await getThread(input.threadId);
+  if (!thread) {
+    console.error(`✗ Thread not found: ${input.threadId}`);
+    process.exit(1);
+  }
+
+  // 1. Store inbound external message
+  await appendMessage(thread.id, "external", input.message);
+
+  const context: ThreadContext = {
+    threadId: thread.id,
+    channel: thread.channel,
+    toAddress: thread.toAddress,
+    fromAddress: input.from,
+  };
+
+  // 2. Run agent with recent thread history
+  const messages = await getRecentMessages(thread.id);
+  const output = await runAgent({ thread: context, messages });
+
+  // 3. Store agent response
+  await appendMessage(thread.id, "agent", output.raw);
+
+  // 4. Print acknowledgment
+  console.log("OK");
+  console.log(output.raw);
 }
 
 async function handleUserThread(input: CLIInput & { kind: "user_thread" }) {
-  console.log("→ User continues thread");
-  console.log(`  Thread  : ${input.threadId}`);
-  console.log(`  Message : ${input.message}`);
-  // TODO M4: load thread, append user message, run agent
+  const thread = await getThread(input.threadId);
+  if (!thread) {
+    console.error(`✗ Thread not found: ${input.threadId}`);
+    process.exit(1);
+  }
+
+  // 1. Store user message
+  await appendMessage(thread.id, "user", input.message);
+
+  const context: ThreadContext = {
+    threadId: thread.id,
+    channel: thread.channel,
+    toAddress: thread.toAddress,
+  };
+
+  // 2. Run agent with recent thread history
+  const messages = await getRecentMessages(thread.id);
+  const output = await runAgent({ thread: context, messages });
+
+  // 3. Store agent response
+  await appendMessage(thread.id, "agent", output.raw);
+
+  // 4. Print formatted output
+  console.log("OK");
+  console.log(output.formatted);
 }
 
 // ── Route ─────────────────────────────────────────────────────────────────────
@@ -66,7 +131,6 @@ async function route(
 
   const { channel, to, from, thread } = opts;
 
-  // Pattern 1: --thread + --from → inbound reply from external party
   if (thread && from) {
     const existing = await getThread(thread);
     if (!existing) {
@@ -82,7 +146,6 @@ async function route(
     return;
   }
 
-  // Pattern 2: --thread only → user continues their own thread
   if (thread && !from) {
     const existing = await getThread(thread);
     if (!existing) {
@@ -93,7 +156,6 @@ async function route(
     return;
   }
 
-  // Pattern 3: --channel + --to → new outbound thread
   if (channel && to) {
     const validatedChannel = validateChannel(channel);
     const validatedTo = validateAddress(to);
@@ -106,7 +168,6 @@ async function route(
     return;
   }
 
-  // Nothing matched
   console.error("✗ Invalid usage. Examples:");
   console.error(
     "  New thread  : --channel email --to bob@example.com 'message'",
