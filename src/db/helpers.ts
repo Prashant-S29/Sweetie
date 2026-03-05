@@ -65,7 +65,7 @@ export async function getRecentMessages(
   limit?: number,
 ): Promise<Message[]> {
   const maxMessages =
-    limit ?? parseInt(process.env.MAX_THREAD_MESSAGES ?? "10");
+    limit ?? parseInt(process.env.MAX_THREAD_MESSAGES ?? "20");
 
   const rows = await db
     .select()

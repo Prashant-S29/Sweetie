@@ -98,7 +98,7 @@ OPENAI_API_KEY=sk-...
 ### 4. Run Database Migration
 
 ```bash
-npx drizzle-kit push
+pnpm db:push
 ```
 
 This creates three tables: `threads`, `messages`, and `memories` (with HNSW vector index and session index).
@@ -171,7 +171,6 @@ Bob's availability (stored from Email thread)
 Every scheduling task gets a `sessionId`. All memory writes and reads are scoped to that session. This means:
 
 - Multiple scheduling tasks coexist in the database without interfering
-- No database reset needed between scenarios or tasks
 - The system scales to hundreds of concurrent sessions
 
 ```
@@ -207,14 +206,13 @@ npx tsx src/scripts/run-scenario.ts 2
 # presents 3 concrete resolution options to Lisa.
 npx tsx src/scripts/run-scenario.ts 3
 ```
-
-No database reset is needed between scenarios. Each run is fully isolated by `sessionId`.
+Each run is fully isolated by `sessionId`.
 
 Results are saved to:
 ```
-results/sc_1_2026-03-05_11-00-00.json
-results/sc_2_2026-03-05_11-05-00.json
-results/sc_3_2026-03-05_11-10-00.json
+results/sc_1_2026-03-05_12-21-53.json
+results/sc_2_2026-03-05_12-28-29.json
+results/sc_3_2026-03-05_12-33-37.json
 ```
 
 Each result file contains the full structured conversation including sender/receiver, message content, channel, type (`send` or `replied`), and timing metadata.
