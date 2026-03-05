@@ -7,8 +7,6 @@ import { BASE_SYSTEM_PROMPT } from "./prompts/system.prompt";
 import { getChannel } from "../channels/registry";
 import { retrieveRelevant } from "../memory/memory.service";
 
-// ── Agent input — signature frozen after M4 ───────────────────────────────────
-
 export interface AgentInput {
   thread: ThreadContext;
   messages: Message[];
@@ -19,89 +17,84 @@ export interface AgentOutput {
   formatted: string;
 }
 
-// ── Tools ─────────────────────────────────────────────────────────────────────
+// Tools are built per-call, closing over the sessionId so retrieval
+// is automatically scoped to the current scheduling task.
+function makeTools(sessionId: string) {
+  return {
+    retrieveMemory: tool({
+      description:
+        "Retrieve relevant facts from previous conversations in this scheduling session. " +
+        "Call this BEFORE scheduling, finding overlaps, or referencing anyone's availability.",
+      parameters: z.object({
+        query: z
+          .string()
+          .describe("What you are looking for, e.g. 'Bob availability'"),
+        limit: z.number().optional(),
+      }),
+      execute: async ({ query, limit }) => {
+        try {
+          const facts = await retrieveRelevant(query, sessionId, limit);
+          if (facts.length === 0)
+            return "No relevant context found in this session.";
+          return facts
+            .map((f) => `[${f.channel} thread ${f.threadId}] ${f.content}`)
+            .join("\n");
+        } catch (err) {
+          console.error(
+            "  ↳ retrieveMemory error (non-fatal):",
+            (err as Error).message,
+          );
+          return "Memory retrieval temporarily unavailable.";
+        }
+      },
+    }),
 
-const retrieveMemoryTool = tool({
-  description:
-    "Retrieve relevant facts from previous conversations across all threads and channels. " +
-    "Call this BEFORE scheduling, finding overlaps, or referencing anyone's availability. " +
-    "Also call this when asked to coordinate between multiple people.",
-  parameters: z.object({
-    query: z
-      .string()
-      .describe(
-        "What you are looking for, e.g. 'Bob availability' or 'Sarah preferences'",
-      ),
-    limit: z
-      .number()
-      .optional()
-      .describe("Max number of facts to retrieve (default 8)"),
-  }),
-  execute: async ({ query, limit }) => {
-    const facts = await retrieveRelevant(query, limit);
-    if (facts.length === 0) {
-      return "No relevant context found in previous conversations.";
-    }
-    return facts
-      .map((f) => `[${f.channel} thread ${f.threadId}] ${f.content}`)
-      .join("\n");
-  },
-});
-
-const findOverlapTool = tool({
-  description:
-    "Find overlapping available time slots between multiple people. " +
-    "Use this after retrieving availability facts to identify when everyone is free.",
-  parameters: z.object({
-    availabilities: z
-      .array(
-        z.object({
-          person: z.string().describe("Person's name or identifier"),
-          slots: z
-            .array(z.string())
-            .describe(
-              "Their available time slots, e.g. ['Monday 2-4pm', 'Wednesday all day']",
-            ),
-        }),
-      )
-      .describe("List of people and their available slots"),
-  }),
-  execute: async ({ availabilities }) => {
-    if (availabilities.length === 0) return "No availability data provided.";
-    if (availabilities.length === 1)
-      return `Only one person's availability provided: ${availabilities[0].person}. Need at least two to find overlap.`;
-
-    // Normalise slot strings for comparison
-    const normalise = (s: string) => s.toLowerCase().trim();
-
-    const allSlots = availabilities.map((a) => a.slots.map(normalise));
-
-    // Find slots that appear in ALL availabilities
-    const firstPersonSlots = allSlots[0];
-    const overlaps = firstPersonSlots.filter((slot) =>
-      allSlots
-        .slice(1)
-        .every((otherSlots) =>
-          otherSlots.some(
-            (s) =>
-              s.includes(slot) || slot.includes(s) || sharesDayKeyword(s, slot),
-          ),
+    findOverlap: tool({
+      description:
+        "Find overlapping available time slots between multiple people.",
+      parameters: z.object({
+        availabilities: z.array(
+          z.object({
+            person: z.string(),
+            slots: z.array(z.string()),
+          }),
         ),
-    );
+      }),
+      execute: async ({ availabilities }) => {
+        try {
+          if (availabilities.length < 2)
+            return "Need at least two people's availability to find overlap.";
 
-    const summary = availabilities
-      .map((a) => `• ${a.person}: ${a.slots.join(", ")}`)
-      .join("\n");
+          const normalise = (s: string) => s.toLowerCase().trim();
+          const allSlots = availabilities.map((a) => a.slots.map(normalise));
+          const overlaps = allSlots[0].filter((slot) =>
+            allSlots
+              .slice(1)
+              .every((other) =>
+                other.some(
+                  (s) =>
+                    s.includes(slot) ||
+                    slot.includes(s) ||
+                    sharesDayKeyword(s, slot),
+                ),
+              ),
+          );
 
-    if (overlaps.length === 0) {
-      return `No direct overlap found.\n\nAvailabilities:\n${summary}\n\nConflict: No common time slots detected. Consider asking parties for alternative times.`;
-    }
+          const summary = availabilities
+            .map((a) => `• ${a.person}: ${a.slots.join(", ")}`)
+            .join("\n");
 
-    return `Overlapping slots: ${overlaps.join(", ")}\n\nAvailabilities:\n${summary}`;
-  },
-});
+          return overlaps.length === 0
+            ? `No overlap found.\n\n${summary}`
+            : `Overlapping slots: ${overlaps.join(", ")}\n\n${summary}`;
+        } catch (err) {
+          return "Overlap calculation unavailable.";
+        }
+      },
+    }),
+  };
+}
 
-// Simple keyword overlap check for day names
 function sharesDayKeyword(a: string, b: string): boolean {
   const days = [
     "monday",
@@ -115,8 +108,6 @@ function sharesDayKeyword(a: string, b: string): boolean {
   return days.some((day) => a.includes(day) && b.includes(day));
 }
 
-// ── Core agent loop ───────────────────────────────────────────────────────────
-
 export async function runAgent(input: AgentInput): Promise<AgentOutput> {
   const { thread, messages } = input;
   const channel = getChannel(thread.channel);
@@ -125,30 +116,36 @@ export async function runAgent(input: AgentInput): Promise<AgentOutput> {
     BASE_SYSTEM_PROMPT +
     "\n\n" +
     channel.getSystemPromptAddendum() +
-    `\n\n` +
-    `IMPORTANT INSTRUCTIONS FOR CONTEXT RETRIEVAL:
-- Before scheduling a meeting or proposing times, ALWAYS call retrieveMemory first
-- Before mentioning anyone's availability, ALWAYS call retrieveMemory to check what you know
-- When asked to coordinate between people, call retrieveMemory for EACH person involved
-- After retrieving availability, use findOverlap to identify common slots
-- Never claim you don't have information without first calling retrieveMemory`;
+    `\n\nCONTEXT RETRIEVAL RULES:
+- ALWAYS call retrieveMemory before scheduling or mentioning anyone's availability
+- Call retrieveMemory for EACH person when coordinating between multiple people
+- Use findOverlap after retrieving availabilities to identify common slots
+- Never claim you lack information without calling retrieveMemory first`;
 
   const formattedMessages = messages.map((m) => ({
     role: m.role === "agent" ? ("assistant" as const) : ("user" as const),
-    content: m.content,
+    content:
+      m.content.length > 4000
+        ? m.content.slice(0, 4000) + "\n[truncated]"
+        : m.content,
   }));
 
-  const { text } = await generateText({
-    model: anthropic("claude-sonnet-4-5"),
-    system: systemPrompt,
-    messages: formattedMessages,
-    tools: {
-      retrieveMemory: retrieveMemoryTool,
-      findOverlap: findOverlapTool,
-    },
-    maxSteps: 5,
-  });
+  try {
+    const { text } = await generateText({
+      model: anthropic("claude-sonnet-4-5"),
+      system: systemPrompt,
+      messages: formattedMessages,
+      tools: makeTools(thread.sessionId), // ← session-scoped
+      maxSteps: 5,
+    });
 
-  const formatted = channel.formatOutbound(text, thread);
-  return { raw: text, formatted };
+    return { raw: text, formatted: channel.formatOutbound(text, thread) };
+  } catch (err) {
+    const error = err as Error;
+    if (error.message.includes("API key"))
+      throw new Error("✗ Anthropic API key invalid or missing");
+    if (error.message.includes("rate limit") || error.message.includes("429"))
+      throw new Error("✗ Rate limit hit. Wait a moment and retry.");
+    throw new Error(`✗ Agent error: ${error.message}`);
+  }
 }

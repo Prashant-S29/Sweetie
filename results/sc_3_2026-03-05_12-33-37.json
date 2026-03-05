@@ -1,0 +1,155 @@
+{
+  "scenario": "Conflict Detection",
+  "scenarioNumber": 3,
+  "timestamp": "2026-03-05T12:33:37.458Z",
+  "totalDurationMs": 268343,
+  "steps": [
+    {
+      "threadId": "thread_mmdfzwxgdttmyp2",
+      "title": "Lisa (Recruiter) → System (initiate)",
+      "type": "replied",
+      "channel": "email",
+      "output": {
+        "senderEmail": "lisa@company.com",
+        "receiverEmail": "recruiting@company.com",
+        "header": "Re: I need to schedule a 90-minute technical interview for Alex ",
+        "body": "I need to schedule a 90-minute technical interview for Alex who applied for our Senior Engineer role. Can you coordinate with Alex and Jordan our CTO to find a time next week?",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 33026,
+        "args": "--channel email --to recruiting@company.com \"I need to schedule a 90-minute technical interview for Alex who applied for our Senior Engineer role. Can you coordinate with Alex and Jordan our CTO to find a time next week?\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfzwxgdttmyp2",
+      "title": "System → Lisa (acknowledging)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "recruiting@company.com",
+        "receiverEmail": "lisa@company.com",
+        "header": "Re: Technical Interview Scheduling for Alex",
+        "body": "Hi Lisa,\n\nThank you for reaching out. I'll coordinate with Alex and Jordan to find a suitable 90-minute time slot for the technical interview next week.\n\nI'll reach out to both of them to gather their availability and report back to you with overlapping options.\n\nBest regards",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 26008,
+        "args": "--thread thread_mmdfzwxgdttmyp2 \"Acknowledge Lisa's request to schedule Alex's interview with Jordan. You'll reach out to both and report back.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdg16fv0b5rdgp",
+      "title": "System → Alex (candidate) via Email",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "recruiting@company.com",
+        "receiverEmail": "alex@gmail.com",
+        "header": "Availability Request - Senior Engineer Technical Interview (90 minutes)",
+        "body": "Dear Alex,\n\nI hope this message finds you well.\n\nWe would like to schedule a 90-minute technical interview with you for the Senior Engineer role. Could you please share your availability for next week?\n\nPlease provide any time slots that work for you, including your timezone if applicable. We'll do our best to accommodate your schedule.\n\nLooking forward to hearing from you.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 29181,
+        "args": "--channel email --to alex@gmail.com \"Ask Alex for his availability next week for a 90-minute technical interview for the Senior Engineer role\""
+      }
+    },
+    {
+      "threadId": "thread_mmdg16fv0b5rdgp",
+      "title": "Alex (candidate) → System",
+      "type": "replied",
+      "channel": "email",
+      "output": {
+        "senderEmail": "alex@gmail.com",
+        "receiverEmail": "recruiting@company.com",
+        "header": "Re: I can only do Friday next week — I'm giving notice at my cur",
+        "body": "I can only do Friday next week — I'm giving notice at my current job Monday through Thursday. I've taken Friday off specifically for this.",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 30824,
+        "args": "--thread thread_mmdg16fv0b5rdgp --from alex@gmail.com \"I can only do Friday next week — I'm giving notice at my current job Monday through Thursday. I've taken Friday off specifically for this.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdg16fv0b5rdgp",
+      "title": "System → Alex (acknowledging Friday availability)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "recruiting@company.com",
+        "receiverEmail": "alex@gmail.com",
+        "header": "RE: Availability Request - Senior Engineer Technical Interview (90 minutes)",
+        "body": "Dear Alex,\n\nPerfect, thank you for confirming your availability on Friday next week.\n\nI've noted that Friday is the only day that works for you, and I'll now coordinate with the interview panel to find a suitable time slot for the 90-minute technical interview. I'll get back to you shortly with the confirmed time.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 27352,
+        "args": "--thread thread_mmdg16fv0b5rdgp \"Acknowledge Alex's Friday availability. Let him know you'll confirm the exact time once you've coordinated with the interview panel.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdg31xvnhyf4cv",
+      "title": "System → Jordan (CTO) via SMS",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "recruiting@company.com",
+        "receiver": "jordan@company.com",
+        "message": "Hey Jordan! When are you free next Friday for a 90-min technical interview with Alex for the Senior Engineer role?"
+      },
+      "metadata": {
+        "durationMs": 29509,
+        "args": "--channel sms --to jordan@company.com \"Ask Jordan when they can do a 90-minute technical interview with Alex for the Senior Engineer role next week\""
+      }
+    },
+    {
+      "threadId": "thread_mmdg31xvnhyf4cv",
+      "title": "Jordan (CTO) → System",
+      "type": "replied",
+      "channel": "sms",
+      "output": {
+        "sender": "jordan@company.com",
+        "receiver": "recruiting@company.com",
+        "message": "I'm at AWS re:Invent all day Friday. Any other day next week works fine."
+      },
+      "metadata": {
+        "durationMs": 29253,
+        "args": "--thread thread_mmdg31xvnhyf4cv --from jordan@company.com \"I'm at AWS re:Invent all day Friday. Any other day next week works fine.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdg31xvnhyf4cv",
+      "title": "System → Jordan (acknowledging)",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "recruiting@company.com",
+        "receiver": "jordan@company.com",
+        "message": "Perfect, thanks Jordan! I've got you down for Mon-Thu next week. Let me check with Alex and I'll follow up with some options soon."
+      },
+      "metadata": {
+        "durationMs": 26009,
+        "args": "--thread thread_mmdg31xvnhyf4cv \"Acknowledge Jordan's availability Mon-Thu. Let him know you're checking options and will follow up.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdg4v6mw82x2wy",
+      "title": "System → Lisa (conflict detected + 3 options)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "recruiting@company.com",
+        "receiverEmail": "lisa@company.com",
+        "header": "Scheduling Conflict - No Overlap Next Week",
+        "body": "Dear Lisa,\n\nI've confirmed availability from both Alex and Jordan for next week, and unfortunately there is no overlap:\n\n**Current Situation:**\n- **Alex:** Only available Friday (giving notice Mon-Thu at current job; has taken Friday off specifically for this meeting)\n- **Jordan:** Available any day except Friday (attending AWS re:Invent all day Friday)\n\n**Three Options to Resolve:**\n\n1. **Push to the following week** - Schedule for the week of [date], allowing time to find mutual availability when both parties have more flexibility.\n\n2. **Split into two separate meetings** - Meet with Alex on Friday and Jordan on Monday-Thursday to cover the same agenda separately. This requires additional time investment but accommodates both schedules.\n\n3. **Virtual attendance for Jordan** - If Jordan can step away briefly from AWS re:Invent, schedule a short video call on Friday during a conference break (lunch, between sessions, etc.). This would require Jordan's willingness to carve out 30-60 minutes during the conference.\n\nPlease let me know which option you'd prefer to pursue, or if you'd like me to explore alternative solutions.\n\nBest regards,  \nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 37172,
+        "args": "--channel email --to lisa@company.com \"Update lisa@company.com: Alex is only free Friday (giving notice Mon-Thu), Jordan is at AWS re:Invent all day Friday. There is no overlap next week. Present 3 concrete options to resolve this scheduling conflict.\""
+      }
+    }
+  ]
+}

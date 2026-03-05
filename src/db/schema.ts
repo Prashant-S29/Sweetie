@@ -8,12 +8,8 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 
-// ── Enums ────────────────────────────────────────────────────────────────────
-
 export const channelEnum = pgEnum("channel", ["email", "sms"]);
 export const roleEnum = pgEnum("role", ["user", "agent", "external"]);
-
-// ── Threads ──────────────────────────────────────────────────────────────────
 
 export const threads = pgTable("threads", {
   id: text("id").primaryKey(),
@@ -23,8 +19,6 @@ export const threads = pgTable("threads", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   meta: jsonb("meta").$type<Record<string, string>>().default({}),
 });
-
-// ── Messages ─────────────────────────────────────────────────────────────────
 
 export const messages = pgTable("messages", {
   id: text("id").primaryKey(),
@@ -36,12 +30,11 @@ export const messages = pgTable("messages", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// ── Memories ─────────────────────────────────────────────────────────────────
-
 export const memories = pgTable(
   "memories",
   {
     id: text("id").primaryKey(),
+    sessionId: text("session_id").notNull(),
     threadId: text("thread_id")
       .notNull()
       .references(() => threads.id, { onDelete: "cascade" }),
@@ -61,12 +54,11 @@ export const memories = pgTable(
   (table) => [
     index("memories_embedding_idx").using(
       "hnsw",
-      table.embedding.op("vector_cosine_ops")
+      table.embedding.op("vector_cosine_ops"),
     ),
-  ]
+    index("memories_session_idx").on(table.sessionId), // fast session scoping
+  ],
 );
-
-// ── Types ─────────────────────────────────────────────────────────────────────
 
 export type Thread = typeof threads.$inferSelect;
 export type NewThread = typeof threads.$inferInsert;

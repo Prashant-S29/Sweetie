@@ -7,6 +7,7 @@ export type RoleType = "user" | "agent" | "external";
 // ── Thread Context passed to agent ───────────────────────────────────────────
 
 export interface ThreadContext {
+  sessionId: string;
   threadId: string;
   channel: ChannelType;
   toAddress: string;
@@ -42,6 +43,7 @@ export type CLIInput = NewThreadInput | ContinueThreadInput | UserThreadInput;
 
 export interface MemoryFact {
   id: string;
+  sessionId: string;
   content: string;
   threadId: string;
   channel: string;

@@ -1,0 +1,217 @@
+{
+  "scenario": "Cross-Thread Availability Aggregation",
+  "scenarioNumber": 1,
+  "timestamp": "2026-03-05T12:21:53.450Z",
+  "totalDurationMs": 389891,
+  "steps": [
+    {
+      "threadId": "thread_mmdfi831l3zrxqa",
+      "title": "PM → System (initiate)",
+      "type": "replied",
+      "channel": "sms",
+      "output": {
+        "sender": "pm@company.com",
+        "receiver": "scheduler@company.com",
+        "message": "I need to schedule a Q2 roadmap sync with Bob from engineering and Sarah from design sometime next week. Can you coordinate availability?"
+      },
+      "metadata": {
+        "durationMs": 30162,
+        "args": "--channel sms --to scheduler@company.com \"I need to schedule a Q2 roadmap sync with Bob from engineering and Sarah from design sometime next week. Can you coordinate availability?\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfi831l3zrxqa",
+      "title": "System → PM (acknowledging)",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "scheduler@company.com",
+        "receiver": "pm@company.com",
+        "message": "Got it! I'll reach out to Bob and Sarah to get their availability for next week for the Q2 roadmap sync. I'll get back to you once I hear from them both."
+      },
+      "metadata": {
+        "durationMs": 25802,
+        "args": "--thread thread_mmdfi831l3zrxqa \"Acknowledge the PM's request. Let them know you'll reach out to Bob and Sarah and report back.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfjezjf1esy0h",
+      "title": "System → Bob (Engineering Lead) via Email",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "bob@company.com",
+        "header": "Availability Request - Q2 Roadmap Sync with Design Team",
+        "body": "Dear Bob,\n\nI hope this message finds you well. The PM has requested to schedule a Q2 roadmap sync meeting with the design team, and we'd like to include you in this discussion.\n\nCould you please share your availability for next week? Please let me know which days and times work best for you, and I'll coordinate with the design team to find a suitable time slot for everyone.\n\nThank you for your prompt response.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 29201,
+        "args": "--channel email --to bob@company.com \"Ask Bob for his availability next week for a Q2 roadmap sync with the design team, requested by the PM\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfjezjf1esy0h",
+      "title": "Bob (Engineering Lead) → System",
+      "type": "replied",
+      "channel": "email",
+      "output": {
+        "senderEmail": "bob@company.com",
+        "receiverEmail": "scheduler@company.com",
+        "header": "Re: I'm free Monday 2-4pm and Wednesday all day next week. Happy",
+        "body": "I'm free Monday 2-4pm and Wednesday all day next week. Happy to sync on the Q2 roadmap!",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 29055,
+        "args": "--thread thread_mmdfjezjf1esy0h --from bob@company.com \"I'm free Monday 2-4pm and Wednesday all day next week. Happy to sync on the Q2 roadmap!\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfjezjf1esy0h",
+      "title": "System → Bob (acknowledging, waiting on Sarah)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "bob@company.com",
+        "header": "Re: Availability Request - Q2 Roadmap Sync with Design Team",
+        "body": "Dear Bob,\n\nThank you for sharing your availability! I've noted that you're free Monday 2-4pm and Wednesday all day next week.\n\nI'll reach out to Sarah to gather her availability and will confirm the meeting time once I hear back from her.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 26741,
+        "args": "--thread thread_mmdfjezjf1esy0h \"Acknowledge Bob's availability. Let him know you'll confirm once you hear back from Sarah.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfl8nbfgmc1lz",
+      "title": "System → Sarah (Design Lead) via SMS",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "scheduler@company.com",
+        "receiver": "sarah@company.com",
+        "message": "Hey Sarah! The PM needs to schedule a Q2 roadmap sync with you and Bob from engineering next week. Bob's free Monday 2-4pm or all day Wednesday. What works for you?"
+      },
+      "metadata": {
+        "durationMs": 29788,
+        "args": "--channel sms --to sarah@company.com \"Ask Sarah when she's free next week for a Q2 roadmap sync with Bob from engineering. The PM requested this.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfl8nbfgmc1lz",
+      "title": "Sarah (Design Lead) → System",
+      "type": "replied",
+      "channel": "sms",
+      "output": {
+        "sender": "sarah@company.com",
+        "receiver": "scheduler@company.com",
+        "message": "Tuesday or Wednesday afternoon works for me! Wednesday is actually better if possible."
+      },
+      "metadata": {
+        "durationMs": 36455,
+        "args": "--thread thread_mmdfl8nbfgmc1lz --from sarah@company.com \"Tuesday or Wednesday afternoon works for me! Wednesday is actually better if possible.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfl8nbfgmc1lz",
+      "title": "System → Sarah (acknowledging)",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "scheduler@company.com",
+        "receiver": "sarah@company.com",
+        "message": "Got it! Wednesday afternoon confirmed for you. I'll finalize the time with Bob and get back to you soon with the details."
+      },
+      "metadata": {
+        "durationMs": 25804,
+        "args": "--thread thread_mmdfl8nbfgmc1lz \"Acknowledge Sarah's availability. Wednesday afternoon looks good, confirmation coming shortly.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfn7ra2xhxmij",
+      "title": "System → Bob (proposing Wednesday 2pm)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "bob@company.com",
+        "header": "Q2 Sync - Wednesday 2:00-3:00 PM",
+        "body": "Dear Bob,\n\nBased on Sarah's availability on Wednesday afternoon and your availability all day Wednesday, I'd like to propose the following time for our Q2 sync:\n\n**Wednesday, 2:00-3:00 PM**\n\nCould you please confirm if this time works for you? I'll send a calendar invitation once I receive your confirmation.\n\nBest regards",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 31230,
+        "args": "--channel email --to bob@company.com \"Based on Sarah's Wednesday afternoon and your Wednesday all day, propose Wednesday 2:00-3:00 PM for the Q2 sync and ask Bob to confirm\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfn7ra2xhxmij",
+      "title": "Bob → System (confirming Wednesday 2pm)",
+      "type": "replied",
+      "channel": "email",
+      "output": {
+        "senderEmail": "bob@company.com",
+        "receiverEmail": "scheduler@company.com",
+        "header": "Re: Wednesday 2pm works perfectly for me!",
+        "body": "Wednesday 2pm works perfectly for me!",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 29383,
+        "args": "--thread thread_mmdfn7ra2xhxmij --from bob@company.com \"Wednesday 2pm works perfectly for me!\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfoigeaftghne",
+      "title": "System → PM (final confirmation + GMeet link)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "pm@company.com",
+        "header": "Q2 Roadmap Sync - Meeting Confirmed for Wednesday, 2:00-3:00 PM",
+        "body": "Dear PM Team,\n\nThe Q2 roadmap sync meeting has been confirmed with the following details:\n\n**Date & Time:** Wednesday, 2:00-3:00 PM\n\n**Attendees:**\n- Bob (bob@company.com)\n- Sarah (sarah@company.com)\n\n**Meeting Link:** meet.google.com/abc-defg-hij\n\nBoth attendees have confirmed their availability. Please let me know if you need any additional information.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 35647,
+        "args": "--channel email --to pm@company.com \"The Q2 roadmap sync is confirmed. Send pm@company.com a final summary: Bob and Sarah confirmed for Wednesday 2:00-3:00 PM. Google Meet: meet.google.com/abc-defg-hij. List both attendees.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfp9yag4ymv87",
+      "title": "System → Bob (final confirmation + GMeet link)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "bob@company.com",
+        "header": "Confirmation: Q2 Roadmap Sync - Wednesday 2:00-3:00 PM",
+        "body": "Dear Bob,\n\nThis email confirms our Q2 roadmap sync meeting scheduled for:\n\n**Date:** Wednesday  \n**Time:** 2:00-3:00 PM  \n**Attendees:** You, Sarah from Design  \n**Meeting Link:** meet.google.com/abc-defg-hij\n\nPlease let me know if you have any questions or need to make any changes.\n\nBest regards,  \nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 31736,
+        "args": "--channel email --to bob@company.com \"Send Bob final confirmation: Q2 roadmap sync Wednesday 2:00-3:00 PM with Sarah from design. Google Meet: meet.google.com/abc-defg-hij\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfpyiwszxg1qd",
+      "title": "System → Sarah (final confirmation + GMeet link)",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "scheduler@company.com",
+        "receiver": "sarah@company.com",
+        "message": "Hey Sarah! Q2 roadmap sync is set for Wednesday 2:00-3:00 PM with Bob. Link: meet.google.com/abc-defg-hij"
+      },
+      "metadata": {
+        "durationMs": 28874,
+        "args": "--channel sms --to sarah@company.com \"Text Sarah: Q2 roadmap sync confirmed Wednesday 2:00-3:00 PM with Bob. Meet: meet.google.com/abc-defg-hij\""
+      }
+    }
+  ]
+}

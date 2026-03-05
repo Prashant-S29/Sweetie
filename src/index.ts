@@ -1,6 +1,5 @@
 import { extractAndStore } from "./memory/memory.service";
 import { Command, InvalidArgumentError } from "commander";
-
 import * as dotenv from "dotenv";
 dotenv.config();
 
@@ -12,65 +11,73 @@ import {
   getRecentMessages,
 } from "./db/helpers";
 import { runAgent } from "./agent/agent";
-import type {
-  CLIInput,
-  ContinueThreadInput,
-  ChannelType,
-  ThreadContext,
-} from "./types";
+import type { ContinueThreadInput, ChannelType, ThreadContext } from "./types";
+
+// ── Timer ─────────────────────────────────────────────────────────────────────
+
+function startTimer(): () => number {
+  const start = Date.now();
+  return () => {
+    const ms = Date.now() - start;
+    console.log(
+      `\n⏱  Completed in ${ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms}ms`}`,
+    );
+    return ms;
+  };
+}
+
+// ── Session ID ────────────────────────────────────────────────────────────────
+
+export function generateSessionId(): string {
+  return `sess_${Date.now().toString(36)}${Math.random().toString(36).substring(2, 9)}`;
+}
 
 // ── Validation ────────────────────────────────────────────────────────────────
 
 function validateChannel(value: string): ChannelType {
-  if (value !== "email" && value !== "sms") {
+  if (value !== "email" && value !== "sms")
     throw new InvalidArgumentError(
       `Channel must be 'email' or 'sms', got '${value}'`,
     );
-  }
   return value;
-}
-
-function validateAddress(value: string): string {
-  if (!value || value.trim().length === 0) {
-    throw new InvalidArgumentError("Address cannot be empty");
-  }
-  return value.trim();
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
 
-async function handleNewThread(input: CLIInput & { kind: "new_thread" }) {
-  // 1. Create thread in DB
-  const thread = await createThread(input.channel, input.to);
+async function handleNewThread(
+  channel: ChannelType,
+  to: string,
+  message: string,
+  sessionId: string,
+): Promise<{ output: string; threadId: string }> {
+  const thread = await createThread(channel, to);
+  await appendMessage(thread.id, "user", message);
 
-  // 2. Store user instruction as "user" role
-  await appendMessage(thread.id, "user", input.message);
   const context: ThreadContext = {
     threadId: thread.id,
-    channel: input.channel,
-    toAddress: input.to,
+    channel,
+    toAddress: to,
+    sessionId,
   };
-
-  // 3. Run agent — no prior messages, just the user instruction
   const messages = await getRecentMessages(thread.id);
   const output = await runAgent({ thread: context, messages });
-
-  // 4. Store agent response
   await appendMessage(thread.id, "agent", output.raw);
 
-  // 5. Print
   console.log("OK");
   console.log(output.formatted);
+  return { output: output.formatted, threadId: thread.id };
 }
 
-async function handleContinueThread(input: ContinueThreadInput) {
+async function handleContinueThread(
+  input: ContinueThreadInput,
+  sessionId: string,
+): Promise<{ output: string; threadId: string }> {
   const thread = await getThread(input.threadId);
   if (!thread) {
     console.error(`✗ Thread not found: ${input.threadId}`);
     process.exit(1);
   }
 
-  // 1. Store inbound external message
   await appendMessage(thread.id, "external", input.message);
 
   const context: ThreadContext = {
@@ -78,114 +85,59 @@ async function handleContinueThread(input: ContinueThreadInput) {
     channel: thread.channel,
     toAddress: thread.toAddress,
     fromAddress: input.from,
+    sessionId,
   };
 
-  // 2. Run agent with recent thread history
   const messages = await getRecentMessages(thread.id);
   const output = await runAgent({ thread: context, messages });
-
-  // 3. Store agent response
   await appendMessage(thread.id, "agent", output.raw);
-  await extractAndStore(input.message, thread.id, thread.channel, input.from);
-  
 
-  // 4. Print acknowledgment
+  // Fire-and-forget — scoped to session
+  extractAndStore(
+    input.message,
+    thread.id,
+    thread.channel,
+    sessionId,
+    input.from,
+  ).catch((err) =>
+    console.error("  ↳ Memory store failed (non-fatal):", err.message),
+  );
+
   console.log("OK");
   console.log(output.raw);
+  return { output: output.raw, threadId: thread.id };
 }
 
-async function handleUserThread(input: CLIInput & { kind: "user_thread" }) {
-  const thread = await getThread(input.threadId);
+async function handleUserThread(
+  threadId: string,
+  message: string,
+  sessionId: string,
+): Promise<{ output: string; threadId: string }> {
+  const thread = await getThread(threadId);
   if (!thread) {
-    console.error(`✗ Thread not found: ${input.threadId}`);
+    console.error(`✗ Thread not found: ${threadId}`);
     process.exit(1);
   }
 
-  // 1. Store user message
-  await appendMessage(thread.id, "user", input.message);
+  await appendMessage(thread.id, "user", message);
 
   const context: ThreadContext = {
     threadId: thread.id,
     channel: thread.channel,
     toAddress: thread.toAddress,
+    sessionId,
   };
 
-  // 2. Run agent with recent thread history
   const messages = await getRecentMessages(thread.id);
   const output = await runAgent({ thread: context, messages });
-
-  // 3. Store agent response
   await appendMessage(thread.id, "agent", output.raw);
 
-  // 4. Print formatted output
   console.log("OK");
   console.log(output.formatted);
+  return { output: output.formatted, threadId: thread.id };
 }
 
-// ── Route ─────────────────────────────────────────────────────────────────────
-
-async function route(
-  message: string,
-  opts: {
-    channel?: string;
-    to?: string;
-    from?: string;
-    thread?: string;
-  },
-) {
-  await ping();
-
-  const { channel, to, from, thread } = opts;
-
-  if (thread && from) {
-    const existing = await getThread(thread);
-    if (!existing) {
-      console.error(`✗ Thread not found: ${thread}`);
-      process.exit(1);
-    }
-    await handleContinueThread({
-      kind: "continue_thread",
-      threadId: thread,
-      from,
-      message,
-    });
-    return;
-  }
-
-  if (thread && !from) {
-    const existing = await getThread(thread);
-    if (!existing) {
-      console.error(`✗ Thread not found: ${thread}`);
-      process.exit(1);
-    }
-    await handleUserThread({ kind: "user_thread", threadId: thread, message });
-    return;
-  }
-
-  if (channel && to) {
-    const validatedChannel = validateChannel(channel);
-    const validatedTo = validateAddress(to);
-    await handleNewThread({
-      kind: "new_thread",
-      channel: validatedChannel,
-      to: validatedTo,
-      message,
-    });
-    return;
-  }
-
-  console.error("✗ Invalid usage. Examples:");
-  console.error(
-    "  New thread  : --channel email --to bob@example.com 'message'",
-  );
-  console.error(
-    "  Reply       : --thread <id> --from bob@example.com 'message'",
-  );
-  console.error("  User follow : --thread <id> 'message'");
-  process.exit(1);
-}
-
-// ── CLI setup ─────────────────────────────────────────────────────────────────
+// ── CLI ───────────────────────────────────────────────────────────────────────
 
 const program = new Command();
 
@@ -198,12 +150,72 @@ program
   .option("--to <address>", "Recipient address")
   .option("--from <address>", "Sender address (inbound replies)")
   .option("--thread <threadId>", "Thread ID to continue")
+  .option(
+    "--session <sessionId>",
+    "Session ID for memory scoping (auto-generated if omitted)",
+  )
   .action(async (message: string | undefined, opts) => {
-    if (!message || message.trim().length === 0) {
+    const stop = startTimer();
+
+    if (!message?.trim()) {
       console.error("✗ Message is required");
       process.exit(1);
     }
-    await route(message.trim(), opts);
+
+    await ping();
+
+    const sessionId = opts.session ?? generateSessionId();
+    const { channel, to, from, thread } = opts;
+    const msg = message.trim();
+
+    let result: { output: string; threadId?: string; channel?: string };
+
+    if (thread && from) {
+      const existing = await getThread(thread);
+      if (!existing) {
+        console.error(`✗ Thread not found: ${thread}`);
+        process.exit(1);
+      }
+      result = {
+        ...(await handleContinueThread(
+          { kind: "continue_thread", threadId: thread, from, message: msg },
+          sessionId,
+        )),
+        channel: existing.channel,
+      };
+    } else if (thread) {
+      const existing = await getThread(thread);
+      if (!existing) {
+        console.error(`✗ Thread not found: ${thread}`);
+        process.exit(1);
+      }
+      result = {
+        ...(await handleUserThread(thread, msg, sessionId)),
+        channel: existing.channel,
+      };
+    } else if (channel && to) {
+      result = {
+        ...(await handleNewThread(
+          validateChannel(channel),
+          to.trim(),
+          msg,
+          sessionId,
+        )),
+        channel,
+      };
+    } else {
+      console.error("✗ Invalid usage. Examples:");
+      console.error(
+        "  New thread  : --channel email --to bob@example.com 'message'",
+      );
+      console.error(
+        "  Reply       : --thread <id> --from bob@example.com 'message'",
+      );
+      console.error("  User follow : --thread <id> 'message'");
+      process.exit(1);
+    }
+
+    stop();
   });
 
 program.parseAsync(process.argv).catch((err) => {

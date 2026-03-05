@@ -1,0 +1,204 @@
+{
+  "scenario": "Multi-Channel Parallel Outreach",
+  "scenarioNumber": 2,
+  "timestamp": "2026-03-05T12:28:29.539Z",
+  "totalDurationMs": 357967,
+  "steps": [
+    {
+      "threadId": "thread_mmdfre77gcvybyd",
+      "title": "HR → System (initiate onboarding)",
+      "type": "replied",
+      "channel": "email",
+      "output": {
+        "senderEmail": "hr@company.com",
+        "receiverEmail": "scheduler@company.com",
+        "header": "Re: We have a new hire Bob joining engineering on Monday. Can yo",
+        "body": "We have a new hire Bob joining engineering on Monday. Can you schedule a 1-hour onboarding session with Carol from product and Dave from engineering this Friday?",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 32238,
+        "args": "--channel email --to scheduler@company.com \"We have a new hire Bob joining engineering on Monday. Can you schedule a 1-hour onboarding session with Carol from product and Dave from engineering this Friday?\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfre77gcvybyd",
+      "title": "System → HR (acknowledging)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "hr@company.com",
+        "header": "Re: Scheduling Bob's Onboarding Session - Friday Availability Needed",
+        "body": "Thank you for the request. I'll reach out to Carol and Dave right away to gather their availability for this Friday and will work to find a suitable 1-hour slot for Bob's onboarding session.\n\nI'll follow up with you once I've identified an overlapping time that works for both of them.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 26517,
+        "args": "--thread thread_mmdfre77gcvybyd \"Acknowledge HR's request. Let them know you'll reach out to Carol and Dave to find a Friday slot.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfsne89ild4h0",
+      "title": "System → Carol (Product Lead) via Email",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "carol@company.com",
+        "header": "Onboarding Session for New Hire Bob - Friday Availability Needed",
+        "body": "Dear Carol,\n\nI hope this message finds you well.\n\nI'm coordinating a 1-hour onboarding session this Friday for Bob, who will be joining us on Monday. Could you please let me know your available time slots on Friday? \n\nPlease share any times that work for you, and I'll coordinate accordingly.\n\nThank you for your time.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 30401,
+        "args": "--channel email --to carol@company.com \"Ask Carol when she's free this Friday for a 1-hour onboarding session for new hire Bob who joins Monday\""
+      }
+    },
+    {
+      "threadId": "thread_mmdftaxwasq5plt",
+      "title": "System → Dave (Engineering Lead) via SMS",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "scheduler@company.com",
+        "receiver": "dave@company.com",
+        "message": "Hey Dave! Are you free this Friday for a 1-hour new hire onboarding? Bob's joining engineering Monday. What times work for you?"
+      },
+      "metadata": {
+        "durationMs": 26182,
+        "args": "--channel sms --to dave@company.com \"Ask Dave if he's free this Friday for a 1-hour new hire onboarding with Bob joining engineering Monday\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfsne89ild4h0",
+      "title": "Carol (Product Lead) → System",
+      "type": "replied",
+      "channel": "email",
+      "output": {
+        "senderEmail": "carol@company.com",
+        "receiverEmail": "scheduler@company.com",
+        "header": "Re: Friday works great! I'm free anytime after 10am. Morning wou",
+        "body": "Friday works great! I'm free anytime after 10am. Morning would be ideal for onboarding.",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 29451,
+        "args": "--thread thread_mmdfsne89ild4h0 --from carol@company.com \"Friday works great! I'm free anytime after 10am. Morning would be ideal for onboarding.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfsne89ild4h0",
+      "title": "System → Carol (acknowledging, waiting on Dave)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "carol@company.com",
+        "header": "RE: Onboarding Session for New Hire Bob - Friday Availability Needed",
+        "body": "Dear Carol,\n\nThank you for confirming your availability on Friday anytime after 10am, with morning being ideal.\n\nI'll reach out to Dave to gather his availability and will confirm the final time for the onboarding session once I hear back from him.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 26293,
+        "args": "--thread thread_mmdfsne89ild4h0 \"Acknowledge Carol's Friday morning availability. Confirm once you hear back from Dave.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdftaxwasq5plt",
+      "title": "Dave (Engineering Lead) → System",
+      "type": "replied",
+      "channel": "sms",
+      "output": {
+        "sender": "dave@company.com",
+        "receiver": "scheduler@company.com",
+        "message": "Friday afternoon works for me, free after 2pm. Can't do morning, I have standups till noon."
+      },
+      "metadata": {
+        "durationMs": 29624,
+        "args": "--thread thread_mmdftaxwasq5plt --from dave@company.com \"Friday afternoon works for me, free after 2pm. Can't do morning, I have standups till noon.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdftaxwasq5plt",
+      "title": "System → Dave (acknowledging)",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "scheduler@company.com",
+        "receiver": "dave@company.com",
+        "message": "Perfect, thanks Dave! I have you down for Friday afternoon after 2pm. I'll confirm a time with Bob and get back to you soon."
+      },
+      "metadata": {
+        "durationMs": 25874,
+        "args": "--thread thread_mmdftaxwasq5plt \"Acknowledge Dave's Friday afternoon availability. Confirming time shortly.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfw921t034b4s",
+      "title": "System → HR (overlap found: Friday 2pm)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "hr@company.com",
+        "header": "Bob's Onboarding Session - Friday 2:00-3:00 PM",
+        "body": "Dear HR Team,\n\nI've coordinated with Carol and Dave regarding Bob's onboarding session. Based on their availability:\n\n- Carol is available Friday after 10am\n- Dave is available Friday after 2pm\n- **Overlap: Friday after 2pm**\n\nI'd like to propose **Friday, 2:00-3:00 PM** for Bob's onboarding session with Carol and Dave.\n\nCould you please confirm this time works for your team and for Bob? I'll send calendar invitations once confirmed.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 40957,
+        "args": "--channel email --to hr@company.com \"Carol is free Friday after 10am, Dave is free Friday after 2pm. Overlap is Friday after 2pm. Propose Friday 2:00-3:00 PM for Bob's onboarding and ask HR to confirm.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfw921t034b4s",
+      "title": "HR → System (confirming Friday 2pm)",
+      "type": "replied",
+      "channel": "email",
+      "output": {
+        "senderEmail": "hr@company.com",
+        "receiverEmail": "scheduler@company.com",
+        "header": "Re: Friday 2pm works. Please send confirmations to Carol and Dav",
+        "body": "Friday 2pm works. Please send confirmations to Carol and Dave with a meet link.",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 30829,
+        "args": "--thread thread_mmdfw921t034b4s --from hr@company.com \"Friday 2pm works. Please send confirmations to Carol and Dave with a meet link.\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfxsiv4s8malv",
+      "title": "System → Carol (final confirmation + GMeet link)",
+      "type": "send",
+      "channel": "email",
+      "output": {
+        "senderEmail": "scheduler@company.com",
+        "receiverEmail": "carol@company.com",
+        "header": "Confirmed: Bob's Onboarding Session - Friday, 2:00-3:00 PM",
+        "body": "Dear Carol,\n\nI'm pleased to confirm Bob's onboarding session for this Friday from 2:00-3:00 PM.\n\n**Meeting Details:**\n- **Date & Time:** Friday, 2:00-3:00 PM\n- **Attendees:** You, Bob, and Dave from Engineering\n- **Google Meet Link:** meet.google.com/xyz-onbd-123\n\nThis time works well with everyone's schedules - it accommodates your availability after 10am and Dave's availability after 2pm.\n\nPlease let me know if you need anything else in preparation for the session.\n\nBest regards,\nScheduling Coordinator",
+        "attachments": []
+      },
+      "metadata": {
+        "durationMs": 31027,
+        "args": "--channel email --to carol@company.com \"Send Carol final confirmation: Bob's onboarding Friday 2:00-3:00 PM, Dave from engineering also attending. Google Meet: meet.google.com/xyz-onbd-123\""
+      }
+    },
+    {
+      "threadId": "thread_mmdfyg5dzs4tusg",
+      "title": "System → Dave (final confirmation + GMeet link)",
+      "type": "send",
+      "channel": "sms",
+      "output": {
+        "sender": "scheduler@company.com",
+        "receiver": "dave@company.com",
+        "message": "Hey Dave! Bob's onboarding is set for Friday 2-3pm with Carol. Join here: meet.google.com/xyz-onbd-123"
+      },
+      "metadata": {
+        "durationMs": 28566,
+        "args": "--channel sms --to dave@company.com \"Text Dave: Bob onboarding confirmed Friday 2-3pm with Carol. Meet: meet.google.com/xyz-onbd-123\""
+      }
+    }
+  ]
+}
