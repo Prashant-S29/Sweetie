@@ -1,319 +1,288 @@
-# AI/ML Hiring Task: Multi-Channel Scheduling Coordinator
+# Multi-Channel Scheduling Coordinator
 
-## Overview
-
-Build a **multi-channel, cross-thread scheduling coordinator** that can intelligently retrieve and utilize context from previous conversations—regardless of which channel or thread that context originated from.
-
-**Time Limit**: 3 hours  
-**Language**: TypeScript
+An AI scheduling assistant that coordinates meetings across Email and SMS channels with intelligent cross-thread, cross-channel memory retrieval. Built as a CLI tool powered by Claude Sonnet, pgvector semantic search, and session-scoped memory isolation.
 
 ---
 
-## The Problem
+## What It Does
 
-You are building an AI scheduling assistant that handles conversations across multiple channels (Email and SMS). Both channels are **simulated** via CLI—no actual emails or texts are sent. The assistant must:
+You interact with the system via CLI commands that simulate real-world scheduling flows. The agent:
 
-1. **Remember context across threads** — Information shared in one conversation must be accessible when relevant in another
-2. **Remember context across channels** — An availability mentioned via Email should be known when scheduling via SMS
-3. **Handle outbound flows** — User initiates action, agent reaches out to external parties
-4. **Scale without context window abuse** — Dumping all historical messages into a single prompt is not acceptable
-
-### Why This Is Hard
-
-Traditional chatbots treat each conversation as isolated. But real scheduling requires connecting information scattered across multiple conversations:
-
-- Bob shares his availability in **Thread A** (Email)
-- Sarah shares hers in **Thread B** (SMS)  
-- You ask to schedule them together in **Thread C** (Email)
-
-The agent processing Thread C must **automatically** know what Bob said in Thread A and what Sarah said in Thread B—without those threads being explicitly referenced.
+- **Reaches out** to participants across different channels (Email or SMS)
+- **Remembers** what each person said in their own thread
+- **Retrieves** context across threads and channels when scheduling — Bob's availability from an Email thread is automatically available when the agent is working in Sarah's SMS thread
+- **Detects conflicts** when there is no overlapping availability and presents concrete options
+- **Confirms** meetings with calendar invites and Google Meet links
 
 ---
 
-## Requirements
+## Tech Stack
 
-### Functional Requirements
-
-1. **Multi-Channel Support**
-   - Support 2 simulated channels: Email and SMS
-   - Each channel has different interaction patterns and tone expectations
-   - Channel-appropriate response formatting (formal email vs concise SMS)
-
-2. **Cross-Thread Context Retrieval**
-   - Information from Thread A must be retrievable when processing Thread B
-   - Retrieval must be based on **relevance** not just recency
-   - The system must identify WHEN cross-thread context is needed
-
-3. **Cross-Channel Context Retrieval**
-   - Context must flow across channel boundaries
-   - Email availability → accessible from SMS query
-   - SMS preferences → accessible from Email scheduling
-
-4. **Outbound Flow Support**
-   - User initiates action → Agent reaches out to external parties
-   - Proper identification of parties involved
-
-5. **Stateful Conversations**
-   - Each thread maintains its own conversation state
-   - Conversations must be resumable (user can return hours/days later)
-   - State persists across process restarts
-
-### Non-Functional Requirements
-
-6. **Extensible Architecture**
-   - Adding a new channel should not require rewriting core logic
-   - Memory/retrieval system should be pluggable
-   - Agent capabilities should be modular
-
-7. **Scalable Context Management**
-   - ❌ **Invalid**: Loading all messages into one context window
-   - ✅ **Valid**: Intelligent retrieval of relevant context only
-   - System should work with 100s of threads without degradation
+| Component | Technology |
+|---|---|
+| Runtime | Node.js 22, TypeScript |
+| LLM (agent reasoning) | Claude Sonnet 4.5 via Vercel AI SDK |
+| LLM (fact extraction) | Claude Haiku 4.5 |
+| Embeddings | OpenAI text-embedding-3-small (1536 dims) |
+| Database | PostgreSQL + pgvector (Supabase) |
+| ORM | Drizzle ORM |
+| Package manager | pnpm |
 
 ---
 
-## CLI Interface
+## Project Structure
 
-All interactions happen via command line. Channels are simulated—no actual emails or SMS messages are sent.
+```
+src/
+├── index.ts                 CLI entry point and router
+├── agent/
+│   ├── agent.ts             LLM loop with session-scoped tools
+│   └── prompts/
+│       └── system.prompt.ts Base system prompt
+├── channels/
+│   ├── base.channel.ts      Channel interface
+│   ├── email.channel.ts     Formal tone, subject lines, paragraphs
+│   ├── sms.channel.ts       Casual tone, concise, no formatting
+│   └── registry.ts          Channel registry (add channels here)
+├── memory/
+│   ├── embeddings.ts        OpenAI embedding wrapper
+│   └── memory.service.ts    extractAndStore + retrieveRelevant (session-scoped)
+├── db/
+│   ├── client.ts            PostgreSQL connection
+│   ├── schema.ts            threads / messages / memories tables
+│   └── helpers.ts           DB helper functions
+├── types/
+│   └── index.ts             Shared TypeScript types
+└── utils/
+    └── results.ts           Scenario result parsing and saving
+
+src/scripts/
+└── run-scenario.ts          Automated scenario runner
+```
+
+---
+
+## Setup
+
+### 1. Prerequisites
+
+- Node.js 22+
+- pnpm
+- A Supabase project (free tier works) with pgvector enabled
+- Anthropic API key
+- OpenAI API key
+
+### 2. Install Dependencies
 
 ```bash
-# Install dependencies
-npm install
-
-# Start a new thread (outbound email to Bob)
-$ npx tsx src/index.ts --channel email --to bob@example.com "Ask Bob for his availability next week"
-
-> OK
-> Channel: email
-> To: bob@example.com
-> Thread ID: thread_abc123
-> 
-> Message:
-> Subject: Availability Next Week
-> 
-> Hi Bob,
-> 
-> I'm reaching out to find a time to meet next week. What times work for you?
-
-# Simulate Bob's reply (continue the thread)
-$ npx tsx src/index.ts --thread thread_abc123 --from bob@example.com "I'm free Monday 2-4pm and Wednesday all day"
-
-> OK. Noted Bob's availability: Monday 2-4pm, Wednesday all day.
-
-# Start a NEW thread via SMS to Sarah
-$ npx tsx src/index.ts --channel sms --to sarah@example.com "Ask Sarah when she can meet with Bob"
-
-> OK. sound's good.
-> Channel: sms
-> To: sarah@example.com
-> Thread ID: thread_def456
-> 
-> Message:
-> Hi Sarah! When are you free to meet with Bob next week?
-
-# Simulate Sarah's reply
-$ npx tsx src/index.ts --thread thread_def456 --from sarah@example.com "Tuesday or Wednesday afternoon"
-
-> OK. Noted Sarah's availability: Tuesday or Wednesday afternoon.
-
-# Start a THIRD thread — agent should retrieve context from threads 1 and 2
-$ npx tsx src/index.ts --channel email --to manager@example.com "Schedule Bob and Sarah's meeting"
-
-> Understood, i'll do that.
-> Channel: email
-> To: manager@example.com
-> Thread ID: thread_ghi789
-> 
-> Message:
-> Subject: Bob & Sarah Meeting - Wednesday Afternoon
->
-> Hi,
->
-> Based on availability I've gathered:
->  • Bob: Monday 2-4pm, Wednesday all day
->  • Sarah: Tuesday or Wednesday afternoon
->
-> The overlapping window is Wednesday afternoon. 
-> I recommend scheduling for Wednesday 2:00-3:00 PM.
->
-> Let me know if you'd like me to send calendar invites.
+pnpm install
 ```
 
----
+### 3. Environment Variables
 
-## Example Scenarios
+Create a `.env` file in the project root:
 
-### Scenario 1: Cross-Thread Availability Aggregation
+```env
+# Supabase — pooled connection for queries (port 6543)
+DATABASE_URL=postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 
-```
-THREAD 1 — Email (Outbound to Bob)
-────────────────────────────────────
-User: "Ask Bob for his availability next week"
+# Supabase — direct connection for migrations (port 5432)
+DIRECT_URL=postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:5432/postgres
 
-Agent → Bob: "Hi Bob, when are you free next week?"
-
-Bob replies: "I'm available Monday 2-4pm and Wednesday all day"
-
-[Agent stores: Bob available Mon 2-4pm, Wed all day]
-
----
-
-THREAD 2 — SMS (Outbound to Sarah)  
-────────────────────────────────────
-User: "Text Sarah to ask when she can interview Bob"
-
-Agent → Sarah: "Hi Sarah! When works for you to interview Bob?"
-
-Sarah replies: "Tuesday or Wednesday afternoon works for me"
-
-[Agent stores: Sarah available Tue afternoon, Wed afternoon]
-
----
-
-THREAD 3 — Email (Outbound to Hiring Manager)
-────────────────────────────────────
-User: "Email Mike to confirm Bob's interview with Sarah"
-
-[Agent must retrieve Bob's availability from Thread 1 (Email) 
- AND Sarah's availability from Thread 2 (SMS)
- to find overlap: Wednesday afternoon]
-
-Expected Agent Response:
-"Based on the availability I've gathered:
- • Bob: Monday 2-4pm, Wednesday all day
- • Sarah: Tuesday or Wednesday afternoon
- 
- The overlapping window is Wednesday afternoon. 
- I recommend scheduling for Wednesday 2:00-3:00 PM.
- 
- Shall I draft the confirmation email to Mike?"
+ANTHROPIC_API_KEY=sk-ant-...
+OPENAI_API_KEY=sk-...
 ```
 
----
+> Both URLs point to the same Supabase database. `DATABASE_URL` uses the connection pooler for runtime queries. `DIRECT_URL` connects directly for schema migrations.
 
-### Scenario 2: Multi-Channel Parallel Outreach
+### 4. Run Database Migration
 
-```
-USER REQUEST (Single Command)
-────────────────────────────────────
-User: "Schedule a meeting with Bob and Carol for Friday. 
-       Text Bob via SMS, email Carol."
-
-[Agent must create TWO threads and coordinate responses]
-
----
-
-THREAD 1 — SMS (Outbound to Bob, auto-created)
-────────────────────────────────────
-Agent → Bob: "Hi Bob! Are you free Friday for a meeting?"
-
-Bob replies: "Friday afternoon works, after 2pm"
-
-[Agent stores: Bob available Fri after 2pm]
-
----
-
-THREAD 2 — Email (Outbound to Carol, auto-created)
-────────────────────────────────────
-Agent → Carol: "Hi Carol, are you available Friday for a meeting?"
-
-Carol replies: "Yes, I'm free all day Friday"
-
-[Agent stores: Carol available Fri all day]
-
----
-
-BACK TO USER
-────────────────────────────────────
-[Agent synthesizes both responses across threads/channels]
-
-Expected Agent Response:
-"I've heard back from both:
- • Bob (SMS): Available Friday after 2pm
- • Carol (Email): Available all day Friday
- 
- Both are free Friday afternoon. Shall I confirm 2:00-3:00 PM?"
+```bash
+npx drizzle-kit push
 ```
 
----
-
-### Scenario 3: Recruiting Coordination with Conflict
-
-```
-THREAD 1 — Email (Outbound to Alex, the Candidate)
-────────────────────────────────────
-User: "Email Alex to get his availability for an interview next week"
-
-Agent → Alex: "Hi Alex, we'd like to schedule your interview. When are you available next week?"
-
-Alex replies: "I can only do Friday - I'm giving notice at my current job Mon-Thu"
-
-[Agent stores: Alex (candidate) available Fri only]
+This creates three tables: `threads`, `messages`, and `memories` (with HNSW vector index and session index).
 
 ---
 
-THREAD 2 — SMS (Outbound to Jordan, the Client/Hiring Manager)
-────────────────────────────────────
-User: "Text Jordan to see when they can interview Alex"
+## How It Works
 
-Agent → Jordan: "Hi Jordan! When can you interview Alex next week?"
+### Channels
 
-Jordan replies: "I'm at a conference Friday. Any other day works."
+The system supports two channels with distinct formatting and tone:
 
-[Agent stores: Jordan (client) available Mon-Thu, not Fri]
+**Email** — formal tone, subject lines, structured paragraphs, full sign-offs.
 
----
+**SMS** — casual tone, concise messages (160 chars where possible), no markdown, no subject lines.
 
-THREAD 3 — Email (Outbound to Lisa, the Recruiter)
-────────────────────────────────────
-User: "Update Lisa on scheduling Alex's interview with Jordan"
+Adding a new channel requires one new file in `src/channels/` and one line in `src/channels/registry.ts`. The agent, memory service, and CLI are unaffected.
 
-[Agent must synthesize: Alex=Fri only, Jordan=Mon-Thu only → CONFLICT]
+### Threads
 
-Expected Agent Response:
-"I've gathered availability for Alex's interview:
- • Alex (candidate): Only available Friday (giving notice Mon-Thu)
- • Jordan (hiring manager): Available Mon-Thu (conference Friday)
- 
- Unfortunately, there's no overlap next week.
- 
- Options:
- 1. Ask if Jordan can do a quick video call from the conference Friday
- 2. See if Alex can take a long lunch Mon-Thu
- 3. Push to the following week
- 
- How would you like me to proceed with Lisa?"
+Each conversation is a **thread** — a persistent sequence of messages between the scheduling system and one party. Threads are identified by a `thread_id` and survive process restarts.
+
+```bash
+# Start a new thread
+npx tsx src/index.ts --channel email --to bob@company.com "message"
+
+# Continue a thread (inbound reply from external party)
+npx tsx src/index.ts --thread thread_xxx --from bob@company.com "message"
+
+# Continue a thread (you following up)
+npx tsx src/index.ts --thread thread_xxx "message"
 ```
 
+### Multi-Thread Memory
+
+When an external party sends a message, the system:
+
+1. Stores the message in the thread
+2. Runs the agent to produce a response
+3. **Asynchronously** extracts scheduling facts using Claude Haiku and stores them as embeddings (fire-and-forget — never blocks the response)
+
+When the agent needs to schedule a meeting, it calls the `retrieveMemory` tool which runs a pgvector cosine similarity search to find relevant facts from any thread in the current session.
+
+```
+Thread 1 (Email): Bob says "I'm free Monday 2-4pm and Wednesday all day"
+                       ↓ stored as embeddings
+Thread 2 (SMS):   Sarah says "Wednesday afternoon works"
+                       ↓ stored as embeddings
+Thread 3 (Email): "Schedule Bob and Sarah"
+                       ↓ agent calls retrieveMemory("Bob Sarah availability")
+                       ↓ retrieves facts from Thread 1 AND Thread 2
+                       ↓ calls findOverlap() → Wednesday afternoon
+                       ↓ proposes Wednesday 2pm
+```
+
+This is **relevance-based** retrieval, not recency. The system finds what matters, not just what was recent.
+
+### Cross-Channel Retrieval
+
+Memory has no channel filter. Facts extracted from an Email thread are fully retrievable when the agent is working in an SMS thread, and vice versa.
+
+```
+Bob's availability (stored from Email thread)
+    → retrievable when scheduling in Sarah's SMS thread
+    → retrievable when reporting to PM via Email
+```
+
+### Session Scoping
+
+Every scheduling task gets a `sessionId`. All memory writes and reads are scoped to that session. This means:
+
+- Multiple scheduling tasks coexist in the database without interfering
+- No database reset needed between scenarios or tasks
+- The system scales to hundreds of concurrent sessions
+
+```
+sess_aaa: Q2 roadmap sync (Bob + Sarah facts)
+sess_bbb: New hire onboarding (Carol + Dave facts)   ← completely isolated
+sess_ccc: Technical interview (Alex + Jordan facts)  ← completely isolated
+```
+
+### Stateful Conversations
+
+Every thread's messages are stored in PostgreSQL. Conversations are fully resumable — you can return hours or days later and the agent has full context of the previous exchange.
+
 ---
 
-## Provided Resources
+## Running Scenarios
 
-- **Anthropic API Key**: Provided for your use (Claude models)
+Three pre-built scenarios demonstrate the full system. Each scenario auto-generates a `sessionId`, runs all steps in sequence, and saves a structured JSON result to `results/`.
+
+```bash
+# Scenario 1 — Cross-Thread Availability Aggregation
+# PM requests a Q2 roadmap sync. System coordinates Bob (Email) and Sarah (SMS),
+# finds Wednesday 2pm overlap, sends final confirmations with GMeet link to all.
+npx tsx src/scripts/run-scenario.ts 1
+
+# Scenario 2 — Multi-Channel Parallel Outreach
+# HR needs to onboard new hire Bob. System reaches out to Carol (Email) and
+# Dave (SMS) in parallel, finds Friday 2pm overlap, confirms with both.
+npx tsx src/scripts/run-scenario.ts 2
+
+# Scenario 3 — Conflict Detection
+# Recruiter Lisa needs to schedule a technical interview. Alex can only do Friday,
+# Jordan (CTO) is at a conference Friday. System detects the conflict and
+# presents 3 concrete resolution options to Lisa.
+npx tsx src/scripts/run-scenario.ts 3
+```
+
+No database reset is needed between scenarios. Each run is fully isolated by `sessionId`.
+
+Results are saved to:
+```
+results/sc_1_2026-03-05_11-00-00.json
+results/sc_2_2026-03-05_11-05-00.json
+results/sc_3_2026-03-05_11-10-00.json
+```
+
+Each result file contains the full structured conversation including sender/receiver, message content, channel, type (`send` or `replied`), and timing metadata.
 
 ---
 
-## Submission
+## Manual Usage
 
-Provide a GitHub repository containing:
+### Send an outbound message
 
-1. **Source code** with clear project structure
-2. **README** with setup and run instructions
-3. **Demo video** (keep it short) with voiceover that:
-   - Demonstrates all three scenarios working
-   - Explains your architecture and design decisions
-   - Discusses tradeoffs you made and why
+```bash
+npx tsx src/index.ts \
+  --channel email \
+  --to bob@company.com \
+  "Ask Bob for his availability next week for a Q2 sync"
+```
 
-### Important Constraint
+### Simulate an inbound reply
 
-Your solution must use **intelligent context management** that scales. Simply concatenating all thread/message history into a single prompt is not an acceptable solution—the system should work efficiently even with hundreds of threads.
+```bash
+npx tsx src/index.ts \
+  --thread thread_abc123 \
+  --from bob@company.com \
+  "I'm free Monday 2-4pm and Wednesday all day"
+```
+
+### Follow up on a thread
+
+```bash
+npx tsx src/index.ts \
+  --thread thread_abc123 \
+  "Acknowledge Bob's availability and let him know we'll confirm soon"
+```
+
+### Use an explicit session
+
+```bash
+npx tsx src/index.ts \
+  --channel email \
+  --to bob@company.com \
+  --session sess_my_custom_session \
+  "message"
+```
+
+If `--session` is omitted, a new session ID is auto-generated.
 
 ---
 
-## Notes
+## Functional Requirements
 
-- You may use any frameworks, libraries, or external services you find appropriate
-- Focus on the **architecture** — we care more about how you solve the cross-thread problem than perfect NLP
-- All channels are simulated via CLI; no actual messages are sent
+| Requirement | Status | Implementation |
+|---|---|---|
+| Multi-Channel Support | ✅ | EmailChannel + SmsChannel, extensible registry |
+| Cross-Thread Context Retrieval | ✅ | pgvector cosine similarity, `retrieveMemory` tool |
+| Cross-Channel Context Retrieval | ✅ | No channel filter on memory reads |
+| Outbound Flow Support | ✅ | `--channel --to` creates new outbound threads |
+| Stateful Conversations | ✅ | PostgreSQL persistence, resumable threads |
+| Memory Isolation at Scale | ✅ | `sessionId` scoping, unlimited sessions coexist |
 
-Good luck!
+---
+
+## Environment Variables Reference
+
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | Pooled Supabase connection (port 6543) |
+| `DIRECT_URL` | Yes | Direct Supabase connection for migrations (port 5432) |
+| `ANTHROPIC_API_KEY` | Yes | Claude API key |
+| `OPENAI_API_KEY` | Yes | OpenAI API key for embeddings |
+| `MAX_THREAD_MESSAGES` | No | Max messages loaded per thread (default: 20) |
+| `RETRIEVAL_LIMIT` | No | Max facts returned per memory query (default: 8) |
