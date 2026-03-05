@@ -4,6 +4,14 @@ An AI scheduling assistant that coordinates meetings across Email and SMS channe
 
 ---
 
+## Documentation
+| Document | Description |
+|--------|-------------|
+| [Problem Statement](./ps.md) | Assignment problem description |
+| [Architecture](./architecture.md) | System architecture and design decisions |
+| [Dataflow](./dataflow.md) | End-to-end flow of scheduling interactions |
+| [Timeline](./timeline.md) | Implementation timeline and milestones |
+
 ## What It Does
 
 You interact with the system via CLI commands that simulate real-world scheduling flows. The agent:
